@@ -1,9 +1,9 @@
+
 import { useEffect, useState } from "react";
 import { Alert, Text, View } from "react-native";
 
 import { onValue, push, ref } from "firebase/database";
-import { rtdb } from "../database/firebase";
-import { currentUser } from "../data/currentUser";
+import { auth, rtdb } from "../database/firebase";
 
 import ButtonComponent from "../components/ButtonComponent";
 import { GlobalStyle } from "../styles/GlobalStyle";
@@ -12,12 +12,29 @@ export default function ItemScreen({ route }) {
   const { item } = route.params;
 
   const [requestStatus, setRequestStatus] = useState(null);
+  const [userName, setUserName] = useState(null);
 
-  const isOwnItem = item.ownerId === currentUser.id;
+  // Den bruger, der faktisk er logget ind
+  const userId = auth.currentUser?.uid;
+  const isOwnItem = item.ownerId === userId;
 
-  // Tjek om brugeren allerede har sendt en anmodning på denne ting
+  // Hent brugerens navn fra Firebase
   useEffect(() => {
-    if (isOwnItem) return;
+    if (!userId) return;
+
+    const userRef = ref(rtdb, `Users/${userId}`);
+
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      const userData = snapshot.val();
+      setUserName(userData?.name || null);
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  // Tjek om brugeren allerede har sendt en låneanmodning
+  useEffect(() => {
+    if (!userId || isOwnItem) return;
 
     const requestsRef = ref(rtdb, "Requests");
 
@@ -32,32 +49,52 @@ export default function ItemScreen({ route }) {
       const existingRequest = Object.values(data).find(
         (request) =>
           request.itemId === item.id &&
-          request.borrowerId === currentUser.id
+          request.borrowerId === userId
       );
 
-      if (existingRequest) {
-        setRequestStatus(existingRequest.status);
-      } else {
-        setRequestStatus(null);
-      }
+      setRequestStatus(existingRequest?.status || null);
     });
 
     return () => unsubscribe();
-  }, [item.id, isOwnItem]);
+  }, [item.id, isOwnItem, userId]);
 
   // Gem låneanmodningen i Firebase
   const sendRequest = async () => {
+    if (!userId || !userName) {
+      Alert.alert(
+        "Fejl",
+        "Kunne ikke hente din brugerprofil. Prøv igen."
+      );
+      return;
+    }
+
+    if (isOwnItem) {
+      Alert.alert("Du kan ikke låne din egen ting.");
+      return;
+    }
+
+    if (!item.ownerId) {
+      Alert.alert("Fejl", "Denne ting mangler en ejer.");
+      return;
+    }
+
+    if (requestStatus) {
+      Alert.alert("Du har allerede sendt en låneanmodning.");
+      return;
+    }
+
     try {
       await push(ref(rtdb, "Requests"), {
         itemId: item.id,
         itemName: item.name,
         ownerId: item.ownerId,
-        ownerName: item.ownerName,
-        borrowerId: currentUser.id,
-        borrowerName: currentUser.name,
+        ownerName: item.ownerName || "Ukendt",
+        borrowerId: userId,
+        borrowerName: userName,
         status: "pending",
       });
 
+      setRequestStatus("pending");
       Alert.alert("Låneanmodning sendt!");
     } catch (error) {
       Alert.alert("Fejl", error.message);
@@ -65,18 +102,9 @@ export default function ItemScreen({ route }) {
   };
 
   const getStatusText = () => {
-    if (requestStatus === "pending") {
-      return "Afventer svar";
-    }
-
-    if (requestStatus === "accepted") {
-      return "Accepteret ✅";
-    }
-
-    if (requestStatus === "rejected") {
-      return "Afvist ❌";
-    }
-
+    if (requestStatus === "pending") return "Afventer svar";
+    if (requestStatus === "accepted") return "Accepteret ✅";
+    if (requestStatus === "rejected") return "Afvist ❌";
     return null;
   };
 
@@ -86,7 +114,7 @@ export default function ItemScreen({ route }) {
 
       <View style={GlobalStyle.card}>
         <Text style={GlobalStyle.text}>
-          Ejer: {item.ownerName}
+          Ejer: {item.ownerName || "Ukendt"}
         </Text>
 
         <Text style={GlobalStyle.text}>

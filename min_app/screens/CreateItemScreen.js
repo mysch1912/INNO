@@ -1,9 +1,9 @@
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import { Text, TextInput, View, Alert } from "react-native";
 
-import { ref, push } from "firebase/database";
-import { rtdb } from "../database/firebase";
-import { currentUser } from "../data/currentUser";
+import { ref, push, onValue } from "firebase/database";
+import { auth, rtdb } from "../database/firebase";
 
 import ButtonComponent from "../components/ButtonComponent";
 import { GlobalStyle } from "../styles/GlobalStyle";
@@ -11,6 +11,24 @@ import { GlobalStyle } from "../styles/GlobalStyle";
 export default function CreateItemScreen({ navigation }) {
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
+  const [userName, setUserName] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const userId = auth.currentUser?.uid;
+
+  // Hent den indloggede brugers navn fra Firebase
+  useEffect(() => {
+    if (!userId) return;
+
+    const userRef = ref(rtdb, `Users/${userId}`);
+
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      const userData = snapshot.val();
+      setUserName(userData?.name || null);
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
 
   const createItem = async () => {
     if (!name.trim() || !location.trim()) {
@@ -18,12 +36,24 @@ export default function CreateItemScreen({ navigation }) {
       return;
     }
 
+    if (!userId || !userName) {
+      Alert.alert(
+        "Fejl",
+        "Kunne ikke hente din brugerprofil. Prøv igen."
+      );
+      return;
+    }
+
+    if (saving) return;
+
+    setSaving(true);
+
     try {
       await push(ref(rtdb, "Items"), {
         name: name.trim(),
         location: location.trim(),
-        ownerId: currentUser.id,
-        ownerName: currentUser.name,
+        ownerId: userId,
+        ownerName: userName,
       });
 
       setName("");
@@ -34,6 +64,8 @@ export default function CreateItemScreen({ navigation }) {
       navigation.navigate("Profil");
     } catch (error) {
       Alert.alert("Fejl", error.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -56,7 +88,7 @@ export default function CreateItemScreen({ navigation }) {
       />
 
       <ButtonComponent
-        title="Opret ting"
+        title={saving ? "Opretter..." : "Opret ting"}
         onPress={createItem}
       />
     </View>

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,8 +9,8 @@ import {
 } from "react-native";
 
 import { onValue, ref, update } from "firebase/database";
-import { rtdb } from "../database/firebase";
-import { currentUser } from "../data/currentUser";
+import { signOut } from "firebase/auth";
+import { auth, rtdb } from "../database/firebase";
 
 import ButtonComponent from "../components/ButtonComponent";
 import { GlobalStyle } from "../styles/GlobalStyle";
@@ -17,6 +18,23 @@ import { GlobalStyle } from "../styles/GlobalStyle";
 export default function ProfileScreen({ navigation }) {
   const [items, setItems] = useState(null);
   const [requests, setRequests] = useState(null);
+  const [userName, setUserName] = useState(null);
+
+  const userId = auth.currentUser?.uid;
+
+  // Hent brugerens navn fra Firebase
+  useEffect(() => {
+    if (!userId) return;
+
+    const userRef = ref(rtdb, `Users/${userId}`);
+
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      const userData = snapshot.val();
+      setUserName(userData?.name || auth.currentUser?.email || "Bruger");
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
 
   // Hent ting fra Firebase
   useEffect(() => {
@@ -25,16 +43,14 @@ export default function ProfileScreen({ navigation }) {
     const unsubscribe = onValue(itemsRef, (snapshot) => {
       const data = snapshot.val();
 
-      if (data) {
-        const itemList = Object.entries(data).map(([id, item]) => ({
-          id,
-          ...item,
-        }));
+      const itemList = data
+        ? Object.entries(data).map(([id, item]) => ({
+            id,
+            ...item,
+          }))
+        : [];
 
-        setItems(itemList);
-      } else {
-        setItems([]);
-      }
+      setItems(itemList);
     });
 
     return () => unsubscribe();
@@ -47,54 +63,53 @@ export default function ProfileScreen({ navigation }) {
     const unsubscribe = onValue(requestsRef, (snapshot) => {
       const data = snapshot.val();
 
-      if (data) {
-        const requestList = Object.entries(data).map(
-          ([id, request]) => ({
+      const requestList = data
+        ? Object.entries(data).map(([id, request]) => ({
             id,
             ...request,
-          })
-        );
+          }))
+        : [];
 
-        setRequests(requestList);
-      } else {
-        setRequests([]);
-      }
+      setRequests(requestList);
     });
 
     return () => unsubscribe();
   }, []);
 
-  if (items === null || requests === null) {
-    return (
-      <View style={GlobalStyle.centerContainer}>
-        <ActivityIndicator size="large" />
-        <Text>Henter profil...</Text>
-      </View>
-    );
-  }
-
-  // Ting som den aktuelle bruger ejer
-  const myItems = items.filter(
-    (item) => item.ownerId === currentUser.id
-  );
-
-  // Anmodninger jeg selv har sendt
-  const myBorrowRequests = requests.filter(
-    (request) => request.borrowerId === currentUser.id
-  );
-
-  // Anmodninger andre har sendt på mine ting
-  const requestsForMe = requests.filter(
-    (request) => request.ownerId === currentUser.id
-  );
-
+  // Accepter eller afvis en låneanmodning
   const changeRequestStatus = async (requestId, newStatus) => {
     try {
+      if (!userId) {
+        Alert.alert("Fejl", "Du skal være logget ind.");
+        return;
+      }
+
+      const request = requests?.find((r) => r.id === requestId);
+
+      if (!request || request.ownerId !== userId) {
+        Alert.alert("Fejl", "Du ejer ikke denne låneanmodning.");
+        return;
+      }
+
+      if (request.status !== "pending") {
+        Alert.alert("Fejl", "Anmodningen er allerede behandlet.");
+        return;
+      }
+
       await update(ref(rtdb, `Requests/${requestId}`), {
         status: newStatus,
       });
     } catch (error) {
       Alert.alert("Fejl", error.message);
+    }
+  };
+
+  // Log brugeren ud af Firebase
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      Alert.alert("Fejl", "Kunne ikke logge ud.");
     }
   };
 
@@ -106,12 +121,33 @@ export default function ProfileScreen({ navigation }) {
     return status;
   };
 
+  if (items === null || requests === null || userName === null) {
+    return (
+      <View style={GlobalStyle.centerContainer}>
+        <ActivityIndicator size="large" />
+        <Text>Henter profil...</Text>
+      </View>
+    );
+  }
+
+  const myItems = items.filter(
+    (item) => item.ownerId === userId
+  );
+
+  const myBorrowRequests = requests.filter(
+    (request) => request.borrowerId === userId
+  );
+
+  const requestsForMe = requests.filter(
+    (request) => request.ownerId === userId
+  );
+
   return (
     <ScrollView style={GlobalStyle.container}>
       <Text style={GlobalStyle.title}>Min profil</Text>
 
       <Text style={GlobalStyle.subtitle}>
-        {currentUser.name}
+        {userName}
       </Text>
 
       {/* MINE LÅN */}
@@ -220,6 +256,14 @@ export default function ProfileScreen({ navigation }) {
       <ButtonComponent
         title="Lån en ny ting ud"
         onPress={() => navigation.navigate("Opret")}
+      />
+
+      {/* LOG UD */}
+
+      <ButtonComponent
+        title="Log ud"
+        secondary
+        onPress={handleLogout}
       />
 
       <View style={{ height: 30 }} />
