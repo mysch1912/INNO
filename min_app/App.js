@@ -6,7 +6,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { onAuthStateChanged } from "firebase/auth";
 
 import { auth } from "./database/firebase";
-
+import { GlobalStyle } from "./styles/GlobalStyle";
 import LoginScreen from "./screens/LoginScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 
@@ -30,21 +30,13 @@ export default function App() {
 
     return unsubscribe;
   }, []);
-
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <ActivityIndicator size="large" />
+      <View style={GlobalStyle.centerContainer}>
+        <ActivityIndicator size="large" color="#245C49" />
       </View>
     );
   }
-
   return (
     <NavigationContainer>
       <Stack.Navigator>

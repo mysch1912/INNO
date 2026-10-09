@@ -15,7 +15,7 @@ export default function RegisterScreen({ navigation }) {
 
   const registerUser = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
-      Alert.alert("Udfyld alle felter.");
+      Alert.alert("Manglende oplysninger", "Udfyld alle felter.");
       return;
     }
 

@@ -22,20 +22,27 @@ export default function CreateItemScreen({ navigation }) {
 
     const userRef = ref(rtdb, `Users/${userId}`);
 
-    const unsubscribe = onValue(userRef, (snapshot) => {
-      const userData = snapshot.val();
-      setUserName(userData?.name || null);
-    });
+    const unsubscribe = onValue(
+      userRef,
+      (snapshot) => {
+        const userData = snapshot.val();
+        setUserName(userData?.name || null);
+      },
+      (error) => {
+        console.log("Fejl ved hentning af bruger:", error);
+        setUserName(null);
+        Alert.alert("Fejl", "Kunne ikke hente din brugerprofil.");
+      }
+    );
 
     return () => unsubscribe();
   }, [userId]);
 
   const createItem = async () => {
     if (!name.trim() || !location.trim()) {
-      Alert.alert("Udfyld både ting og område.");
+      Alert.alert("Manglende oplysninger", "Udfyld både ting og område.");
       return;
     }
-
     if (!userId || !userName) {
       Alert.alert(
         "Fejl",

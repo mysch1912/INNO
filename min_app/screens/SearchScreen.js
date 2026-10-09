@@ -15,38 +15,55 @@ import { GlobalStyle } from "../styles/GlobalStyle";
 export default function SearchScreen({ navigation }) {
   const [search, setSearch] = useState("");
   const [items, setItems] = useState(null);
+  const [error, setError] = useState("");
 
   // Hent ting fra Firebase
-  useEffect(() => {
-    const itemsRef = ref(rtdb, "Items");
+useEffect(() => {
+  const itemsRef = ref(rtdb, "Items");
 
-    const unsubscribe = onValue(itemsRef, (snapshot) => {
+  const unsubscribe = onValue(
+    itemsRef,
+    (snapshot) => {
       const data = snapshot.val();
 
-      if (data) {
-        const itemList = Object.entries(data).map(([id, item]) => ({
-          id,
-          ...item,
-        }));
+      const itemList = data
+        ? Object.entries(data).map(([id, item]) => ({
+            ...item,
+            id,
+          }))
+        : [];
 
-        setItems(itemList);
-      } else {
-        setItems([]);
-      }
-    });
+      setItems(itemList);
+      setError("");
+    },
+    (firebaseError) => {
+      console.log(firebaseError);
+      setError("Kunne ikke hente ting.");
+      setItems([]);
+    }
+  );
 
-    return unsubscribe;
-  }, []);
+  return () => unsubscribe();
+}, []);
 
   // Vis loading mens Firebase henter data
-  if (items === null) {
-    return (
-      <View style={GlobalStyle.centerContainer}>
-        <ActivityIndicator size="large" />
-        <Text>Henter ting...</Text>
-      </View>
-    );
-  }
+  // Vis loading og fejlbeskeder
+if (items === null && !error) {
+  return (
+    <View style={GlobalStyle.centerContainer}>
+      <ActivityIndicator size="large" color="#245C49" />
+      <Text style={GlobalStyle.text}>Henter ting...</Text>
+    </View>
+  );
+}
+
+if (error) {
+  return (
+    <View style={GlobalStyle.centerContainer}>
+      <Text style={GlobalStyle.text}>{error}</Text>
+    </View>
+  );
+}
 
   // Filtrer ting efter brugerens søgning
   const filteredItems = items.filter((item) =>
