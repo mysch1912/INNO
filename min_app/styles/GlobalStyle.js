@@ -202,7 +202,7 @@ export const GlobalStyle = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 6,
-    marginBottom: 30,
+    marginBottom: 24,
   },
 
   homeV2Brand: {

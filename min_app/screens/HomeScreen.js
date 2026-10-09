@@ -88,18 +88,6 @@ export default function HomeScreen({ navigation }) {
         </Pressable>
       </View>
 
-      {/* VELKOMST */}
-
-      <View style={GlobalStyle.homeV2Intro}>
-        <Text style={GlobalStyle.homeV2Title}>
-          Hvad vil du gerne?
-        </Text>
-
-        <Text style={GlobalStyle.homeV2Subtitle}>
-          Lån noget af andre, eller del dine egne ting.
-        </Text>
-      </View>
-
       {/* FIND TING */}
 
       <Pressable
