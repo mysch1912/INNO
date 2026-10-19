@@ -67,7 +67,7 @@ De skriftlige rapporter er udarbejdet individuelt.
 
 ## Demovideo
 
-[INDSÆT LINK TIL DEMOVIDEO]
+https://youtube.com/shorts/_ftmyn2zMNw
 
 ## GitHub
 
